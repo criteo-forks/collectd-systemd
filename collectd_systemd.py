@@ -46,7 +46,7 @@ class SystemD(object):
         for node in conf.children:
             vals = [str(v) for v in node.values]
             if node.key == 'Service':
-                self._services = vals
+                self.services = vals
             elif node.key == 'Interval':
                 self.interval = float(vals[0])
             elif node.key == 'Verbose':
@@ -54,11 +54,17 @@ class SystemD(object):
             else:
                 raise ValueError('{} plugin: Unknown config key: {}'
                                  .format(self.plugin_name, node.key))
-        if not self._services:
+        if not self.services:
             self.log_verbose('No services defined in configuration')
             return
         self.init_dbus()
-        self.services = [ unit[0].rstrip('.service') for pat in self._services for unit in self.manager.ListUnits() if re.search('^%s.service$' %(pat), unit[0])]
+        services = []
+        SERVICE_SUFFIX = '.service'
+        for pattern in self.services:
+            for unit in self.manager.ListUnits():
+                if re.search('^%s\%s$' %(pattern, SERVICE_SUFFIX), unit[0]):
+                    services.append(unit[0].rstrip(SERVICE_SUFFIX))
+        self.services = services
         collectd.register_read(self.read_callback, self.interval)
         self.log_verbose('Configured with services={}, interval={}'
                          .format(self.services, self.interval))

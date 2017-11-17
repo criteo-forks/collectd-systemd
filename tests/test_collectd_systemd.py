@@ -14,8 +14,8 @@ def conf_bare():
 @pytest.fixture
 def conf_valid(conf_bare):
     conf_bare.children.extend([
-        mock.Mock(key='Verbose', values=['tRuE']),
-        mock.Mock(key='Service', values=['service1', 'service2']),
+        mock.Mock(key='Verbose', values=['true']),
+        mock.Mock(key='Service', values=['service1', '.*foo']),
     ])
     return conf_bare
 
@@ -33,14 +33,20 @@ def mon():
 
 @pytest.fixture
 def configured_mon(mon, conf_valid):
-    mon.configure_callback(conf_valid)
-    return mon
+    with mock.patch('dbus.Interface') as m:
+        i = m.return_value
+        i.ListUnits.return_value = [['service1.service', 'foo'], ['service2foo.service', 'bar']]
+        mon.configure_callback(conf_valid)
+        return mon
 
 
 def test_configure(mon, conf_valid):
     with mock.patch('collectd.register_read') as m:
-        mon.configure_callback(conf_valid)
-        m.assert_called_once_with(mon.read_callback, mock.ANY)
+        with mock.patch('dbus.Interface') as l:
+            i = l.return_value
+            i.ListUnits.return_value = [['service1.service', 'foo'], ['service2foo.service', 'bar']]
+            mon.configure_callback(conf_valid)
+            m.assert_called_once_with(mon.read_callback, mock.ANY)
     assert hasattr(mon, 'bus')
     assert hasattr(mon, 'manager')
     assert mon.interval == 120.0
@@ -88,5 +94,5 @@ def test_send_metrics(configured_mon):
             assert c1_kwargs['plugin_instance'] == 'service1'
             assert c1_kwargs['values'] == [1]
             c2_kwargs = val_mock.call_args_list[1][1]
-            assert c2_kwargs['plugin_instance'] == 'service2'
+            assert c2_kwargs['plugin_instance'] == 'service2foo'
             assert c2_kwargs['values'] == [0]

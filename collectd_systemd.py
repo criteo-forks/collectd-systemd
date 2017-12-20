@@ -2,6 +2,7 @@ import dbus
 import collectd
 import re
 
+SERVICE_SUFFIX = '.service'
 
 class SystemD(object):
     def __init__(self):
@@ -59,11 +60,10 @@ class SystemD(object):
             return
         self.init_dbus()
         services = []
-        SERVICE_SUFFIX = '.service'
         for pattern in self.services:
             for unit in self.manager.ListUnits():
                 if re.search('^%s\%s$' %(pattern, SERVICE_SUFFIX), unit[0]):
-                    services.append(unit[0].rstrip(SERVICE_SUFFIX))
+                    services.append(re.sub('\%s$' % (SERVICE_SUFFIX), '', unit[0]))
         self.services = services
         collectd.register_read(self.read_callback, self.interval)
         self.log_verbose('Configured with services={}, interval={}'
@@ -72,7 +72,7 @@ class SystemD(object):
     def read_callback(self):
         self.log_verbose('Read callback called')
         for name in self.services:
-            full_name = name + '.service'
+            full_name = name + SERVICE_SUFFIX
             state = self.get_service_state(full_name)
             value = (1.0 if state == 'running' else 0.0)
             self.log_verbose('Sending value: {}.{}={} (state={})'

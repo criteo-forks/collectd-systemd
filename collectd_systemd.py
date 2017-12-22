@@ -43,6 +43,30 @@ class SystemD(object):
         else:
             return unit.Get('org.freedesktop.systemd1.Unit', 'SubState')
 
+    def get_service_type(self, name):
+        unit = self.get_unit(name)
+        if not unit:
+            return 'broken'
+        else:
+            return unit.Get('org.freedesktop.systemd1.Service', 'Type')
+
+    def get_service_status_code(self, name):
+        unit = self.get_unit(name)
+        if not unit:
+            return 'broken'
+        else:
+            return unit.Get('org.freedesktop.systemd1.Service', 'ExecMainStatus')
+
+    def service_is_running(self, name):
+        state = self.get_service_state(name)
+        type = self.get_service_type(name)
+        status_code = self.get_service_status_code(name)
+        if state == 'running':
+            return 1
+        if type == 'oneshot' and status_code == 0:
+            return 1
+        return 0
+
     def configure_callback(self, conf):
         for node in conf.children:
             vals = [str(v) for v in node.values]
@@ -73,10 +97,9 @@ class SystemD(object):
         self.log_verbose('Read callback called')
         for name in self.services:
             full_name = name + SERVICE_SUFFIX
-            state = self.get_service_state(full_name)
-            value = (1.0 if state == 'running' else 0.0)
-            self.log_verbose('Sending value: {}.{}={} (state={})'
-                             .format(self.plugin_name, name, value, state))
+            value = float(self.service_is_running(full_name))
+            self.log_verbose('Sending value: {}.{}={}'
+                             .format(self.plugin_name, name, value))
             val = collectd.Values(
                 type='gauge',
                 plugin=self.plugin_name,

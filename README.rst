@@ -13,6 +13,7 @@ collectd-systemd
 A `collectd`_ plugin which checks if given `systemd`_ services are in
 "running" state and sends `graphite`_ metrics with ``1.0`` or ``0.0``
 value.
+The plugin can also monitors "oneshot" services based on their last status code.
 
 The plugin is particularly useful together with `grafana's alerting`_.
 

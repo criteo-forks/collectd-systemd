@@ -83,6 +83,23 @@ def test_get_service_state(configured_mon):
         state = configured_mon.get_service_state('missing')
         assert state == 'broken'
 
+def test_service_is_running(configured_mon):
+    with mock.patch.object(configured_mon, 'get_service_state', return_value='running'):
+        state = configured_mon.service_is_running('foo')
+        assert state == 1
+    with mock.patch.object(configured_mon, 'get_service_state', return_value='failing'):
+        state = configured_mon.service_is_running('foo')
+        assert state == 0
+    with mock.patch.object(configured_mon, 'get_service_state', return_value='dead'):
+        with mock.patch.object(configured_mon, 'get_service_type', return_value='oneshot'):
+            with mock.patch.object(configured_mon, 'get_service_status_code', return_value=1):
+                state = configured_mon.service_is_running('foo')
+                assert state == 0
+    with mock.patch.object(configured_mon, 'get_service_state', return_value='dead'):
+        with mock.patch.object(configured_mon, 'get_service_type', return_value='oneshot'):
+            with mock.patch.object(configured_mon, 'get_service_status_code', return_value=0):
+                state = configured_mon.service_is_running('foo')
+                assert state == 1
 
 def test_send_metrics(configured_mon):
     with mock.patch.object(configured_mon, 'get_service_state') as m:

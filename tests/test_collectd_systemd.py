@@ -16,6 +16,7 @@ def conf_valid(conf_bare):
     conf_bare.children.extend([
         mock.Mock(key='Verbose', values=['true']),
         mock.Mock(key='Service', values=['service1', '.*foo']),
+        mock.Mock(key='Service', values=['service3']),
     ])
     return conf_bare
 
@@ -35,7 +36,11 @@ def mon():
 def configured_mon(mon, conf_valid):
     with mock.patch('dbus.Interface') as m:
         i = m.return_value
-        i.ListUnits.return_value = [['service1.service', 'foo'], ['service2foo.service', 'bar']]
+        i.ListUnits.return_value = [
+            ['service1.service', 'foo'],
+            ['service2foo.service', 'bar'],
+            ['service3.service', 'baz'],
+        ]
         mon.configure_callback(conf_valid)
         return mon
 
@@ -44,14 +49,18 @@ def test_configure(mon, conf_valid):
     with mock.patch('collectd.register_read') as m:
         with mock.patch('dbus.Interface') as l:
             i = l.return_value
-            i.ListUnits.return_value = [['service1.service', 'foo'], ['service2foo.service', 'bar']]
+            i.ListUnits.return_value = [
+                ['service1.service', 'foo'],
+                ['service2foo.service', 'bar'],
+                ['service3.service', 'baz'],
+            ]
             mon.configure_callback(conf_valid)
             m.assert_called_once_with(mon.read_callback, mock.ANY)
     assert hasattr(mon, 'bus')
     assert hasattr(mon, 'manager')
     assert mon.interval == 120.0
     assert mon.verbose_logging
-    assert len(mon.services) == 2
+    assert len(mon.services) == 3
 
 
 def test_configure_does_nothing_if_no_services(mon, conf_bare):
@@ -124,13 +133,16 @@ def test_service_is_running(configured_mon):
 
 def test_send_metrics(configured_mon):
     with mock.patch.object(configured_mon, 'get_service_state') as m:
-        m.side_effect = ['running', 'failed']
+        m.side_effect = ['running', 'failed', 'running']
         with mock.patch('collectd.Values') as val_mock:
             configured_mon.read_callback()
-            assert val_mock.call_count == 2
+            assert val_mock.call_count == 3
             c1_kwargs = val_mock.call_args_list[0][1]
             assert c1_kwargs['plugin_instance'] == 'service1'
             assert c1_kwargs['values'] == [1]
             c2_kwargs = val_mock.call_args_list[1][1]
             assert c2_kwargs['plugin_instance'] == 'service2foo'
             assert c2_kwargs['values'] == [0]
+            c3_kwargs = val_mock.call_args_list[2][1]
+            assert c3_kwargs['plugin_instance'] == 'service3'
+            assert c3_kwargs['values'] == [1]

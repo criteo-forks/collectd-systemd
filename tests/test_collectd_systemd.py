@@ -83,6 +83,27 @@ def test_get_service_state(configured_mon):
         state = configured_mon.get_service_state('missing')
         assert state == 'broken'
 
+
+def test_get_service_type(configured_mon):
+    with mock.patch.object(configured_mon, 'get_unit') as m:
+        m().Get.return_value = 'service'
+        service_type = configured_mon.get_service_type('foo')
+        assert service_type == 'service'
+    with mock.patch('dbus.Interface', side_effect=dbus.exceptions.DBusException):
+        service_type = configured_mon.get_service_type('missing')
+        assert service_type == 'broken'
+
+
+def test_get_service_status_code(configured_mon):
+    with mock.patch.object(configured_mon, 'get_unit') as m:
+        m().Get.return_value = 0
+        status_code = configured_mon.get_service_status_code('foo')
+        assert status_code == 0
+    with mock.patch('dbus.Interface', side_effect=dbus.exceptions.DBusException):
+        status_code = configured_mon.get_service_status_code('missing')
+        assert status_code == 'broken'
+
+
 def test_service_is_running(configured_mon):
     with mock.patch.object(configured_mon, 'get_service_state', return_value='running'):
         state = configured_mon.service_is_running('foo')

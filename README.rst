@@ -52,6 +52,7 @@ quotes::
 
     <Module collectd_systemd>
         Service "celery-bots" "gunicorn-data"
+        Service "systemd-r.*"
     </Module>
 
 Restart collectd daemon and open grafana web ui. Add a new graph with
@@ -69,7 +70,7 @@ Configuration
 Following configuration options are supported:
 
 * ``Service``: one or more systemd services to monitor. Separate
-  multiple services with spaces.
+  multiple services with spaces or use multiple ``Service`` lines.
 
 * ``Interval``: check interval. It's ok to keep the default (60 seconds)
 
